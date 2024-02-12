@@ -1,18 +1,22 @@
 from dynaMETE import dynaMETE
 from transition_function import transition_function
 import numpy as np
-np.bool = np.bool_
-import theano
+import pytensor
+import time
 
-
-def f(states):
-    n =  theano.tensor.vector('n')
+def f(n,states):
     dndt_f = n**2 + n
-    dndt = dndt_f
-    return  theano.function([n], dndt)
+    dndt = dndt_f + 1/pytensor.tensor.dot(states,[1])
+    return  0.02 * n +  1/pytensor.tensor.dot(states,[1]) + 0.0002 * n**2 - 0.0002*n
 
 f_func = transition_function(f, "F")
 
-mete = dynaMETE({"N":1000}, [f_func], np.array([0.0]), derivatives ={"N":0})
+print("A")
+mete = dynaMETE([1000], [f_func], derivatives = [0])
 
-mete.update(0.1)
+a = time.time()
+for i in range(100):
+    print(i)
+    mete.update(0.1)
+    print(mete.cur_state)
+print(time.time() - a)

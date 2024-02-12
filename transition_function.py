@@ -1,6 +1,5 @@
 import numpy as np
-np.bool = np.bool_
-import theano
+import pytensor
 
 
 class transition_function:
@@ -13,12 +12,13 @@ class transition_function:
         self.function = function
         self.name = name
 
-    def evaluate(self, states: np.ndarray, n: float):
-        return self.function(states)(n)
+    def evaluate(self, states, n: float):
+
+        return self.function(n, states)
 
     def get_function(self):
         """
-        :return: theano function that takes in a vector of integers and evaluates self.function on every element
+        :return: pytensor function that takes in a vector of integers and evaluates self.function on every element
         """
-        individuals = theano.tensor.vector()
-        return theano.function([individuals], self.function(individuals))
+        individuals = pytensor.tensor.vector()
+        return pytensor.function([individuals], self.function(individuals))
