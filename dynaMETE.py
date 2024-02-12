@@ -24,7 +24,7 @@ class dynaMETE:
         ##Calculate functiont to get derivatives
 
         if lambdas is None:
-            self.lambdas = np.zeros(len(self.constraints) + 1)
+            self.lambdas = np.ones(len(self.constraints) + 1)
             lambdas = self.get_new_lambdas()
 
 
@@ -42,13 +42,13 @@ class dynaMETE:
         diff = pytensor.tensor.sum(np.dot(diff1,diff1)) + pytensor.tensor.sum(np.dot(diff2,diff2))
 
         
-        min_func = pytensor.function([lambdas, derivs, states], diff)
+        min_func = pytensor.function([lambdas, derivs, states], diff1, on_unused_input='ignore')
 
         gs = pytensor.tensor.grad(diff, lambdas)
 
-        grad = pytensor.function([lambdas, derivs, states], gs)
+        grad = pytensor.function([lambdas, derivs, states], gs,  on_unused_input='ignore')
         
-        deriv_func = pytensor.function([lambdas,states], self.get_derivatives(lambdas, states))
+        deriv_func = pytensor.function([lambdas,states], self.get_derivatives(lambdas, states),  on_unused_input='ignore')
 
         return grad, min_func, deriv_func
 
@@ -59,9 +59,11 @@ class dynaMETE:
         """
         #To save on time, all the functions are precompiled and optimized. They're only changed once N changes by a decent amount since
         #there isn't a large difference between using vs not using the last few indices
+
         if  (self.cur_state[N_INDEX] - self.last_update)**2 > 10:
             self.min_grad, self.min_func, self.deriv_func = self.get_deriv_func()
         
+
         #Add current state and lambdas to history
         self.past_states.append(list(self.cur_state))
         self.past_lambdas.append(list(self.lambdas))
@@ -69,11 +71,10 @@ class dynaMETE:
 
         self.cur_state = [self.cur_state[i] + self.derivatives[i] * time_step for i in range(len(self.cur_state))] #update previous state
         
-        a = time.time()
         self.lambdas = self.get_new_lambdas()
 
         new_derivatives = self.deriv_func(self.lambdas, self.cur_state)
-        
+
  
         for i in range(len(self.derivatives)):
             self.derivatives[i] = new_derivatives[0]
@@ -88,11 +89,17 @@ class dynaMETE:
         
         def grad(l):
             return self.min_grad(l, self.cur_state, self.derivatives)
+    
+        def deriv(l):
+            return self.deriv_func(l, self.cur_state)
         
         
+        a = time.time()
+        a,b,c = self.get_deriv_func()
+
 
         best_lambdas = minimize(min_func, self.lambdas, jac=grad, method='Newton-CG',  options={'xtol': 1e-8, 'disp': False})
- 
+
         return best_lambdas.x
 
     def get_derivatives(self, lambdas, states=None):
@@ -124,7 +131,7 @@ class dynaMETE:
 
  
         dist = np.ones(int(self.cur_state[N_INDEX]))
-        n = np.array([i for i in range(int(self.cur_state[N_INDEX]))])
+        n = np.array([i for i in range(1, int(self.cur_state[N_INDEX]) + 1)])
 
  
         for i in range(len(self.constraints)):
@@ -132,6 +139,7 @@ class dynaMETE:
         
         dist *= np.e**(-lambdas[0] * n)
         
+
         return dist/pytensor.tensor.sum(dist)
 
 
